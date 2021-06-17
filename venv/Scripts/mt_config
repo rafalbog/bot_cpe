@@ -1,0 +1,195 @@
+# mar/25/2021 23:08:43 by RouterOS 6.48
+# software id = 7U2C-XLZM
+#
+# model = CCR1009-7G-1C-1S+
+# serial number = 849708F35E82
+/interface bridge
+add name=BRIDGE_VLAN500 protocol-mode=none
+add name=BRIDGE_VLAN510 protocol-mode=none
+add name=BRIDGE_VLAN550 protocol-mode=none
+add name=BRIDGE_VLAN1000 protocol-mode=none
+add name=BRIDGE_VLAN3000 protocol-mode=none
+add name=BRIDGE_VLAN3010 protocol-mode=none
+/interface ethernet
+set [ find default-name=ether1 ] speed=100Mbps
+set [ find default-name=ether2 ] speed=100Mbps
+set [ find default-name=ether3 ] speed=100Mbps
+set [ find default-name=ether4 ] speed=100Mbps
+set [ find default-name=ether5 ] speed=100Mbps
+set [ find default-name=ether6 ] speed=100Mbps
+set [ find default-name=ether7 ] speed=100Mbps
+set [ find default-name=sfp-sfpplus1 ] advertise=\
+    10M-full,100M-full,1000M-full
+/interface vlan
+add interface=combo1 name=OSE_MGMT vlan-id=10
+add interface=ether1 name=OSE_VLAN500 vlan-id=500
+add interface=ether1 name=OSE_VLAN510 vlan-id=510
+add interface=ether1 name=OSE_VLAN550 vlan-id=550
+add interface=ether1 name=OSE_VLAN3000 vlan-id=3000
+add interface=ether1 name=OSE_VLAN3010 vlan-id=3010
+add interface=combo1 name=OSE_internet_1 vlan-id=11
+add interface=combo1 name=OSE_nosec_1 vlan-id=101
+add interface=combo1 name=OSE_wlan_1 vlan-id=51
+add interface=ether1 name=VLAN1000MGTM vlan-id=1000
+/interface wireless security-profiles
+set [ find default=yes ] supplicant-identity=MikroTik
+/ip dhcp-server option
+add code=43 name=unifi value=0x01040A400032
+/ip pool
+add name=VLAN500_dhcp_pool ranges=192.168.10.1-192.168.10.254
+add name=VLAN510_dhcp_pool ranges=192.168.11.1-192.168.11.254
+add name=VLAN3000_dhcp_pool ranges=192.168.30.1-192.168.30.254
+add name=VLAN3010_dhcp_pool ranges=192.168.31.1-192.168.31.254
+add name=VLAN550_dhcp_pool ranges=192.168.15.1-192.168.15.254
+/ip dhcp-server
+add address-pool=VLAN500_dhcp_pool disabled=no interface=BRIDGE_VLAN500 name=\
+    DHCP_VLAN500
+add address-pool=VLAN510_dhcp_pool disabled=no interface=BRIDGE_VLAN510 name=\
+    DHCP_VLAN510
+add address-pool=VLAN3000_dhcp_pool disabled=no interface=BRIDGE_VLAN3000 \
+    name=DHCP_VLAN3000
+add address-pool=VLAN3010_dhcp_pool disabled=no interface=BRIDGE_VLAN3010 \
+    name=DHCP_VLAN3010
+add address-pool=VLAN550_dhcp_pool disabled=no interface=BRIDGE_VLAN550 name=\
+    DHCP_VLAN550
+/ipv6 dhcp-server
+add address-pool=VLAN500_dhcp_pool interface=BRIDGE_VLAN500 name=DHCP_VLAN500
+add address-pool=VLAN510_dhcp_pool interface=BRIDGE_VLAN510 name=DHCP_VLAN510
+add address-pool=VLAN550_dhcp_pool interface=BRIDGE_VLAN550 name=DHCP_VLAN550
+/ipv6 pool
+add name=VLAN500_dhcp_pool prefix=2001:a17:81e0:1300::/64 prefix-length=64
+add name=VLAN510_dhcp_pool prefix=2001:a17:81e0:1301::/64 prefix-length=64
+add name=VLAN3000_dhcp_pool prefix=2001:a17:81e0:13e0::/64 prefix-length=64
+add name=VLAN3010_dhcp_pool prefix=2001:a17:81e0:13e1::/64 prefix-length=64
+add name=VLAN550_dhcp_pool prefix=2001:a17:81e0:13f0::/64 prefix-length=64
+/snmp community
+set [ find default=yes ] addresses=0.0.0.0/0 read-access=no
+add addresses=10.71.147.32/27,10.71.150.144/28 name=CpE-MT@3G7#WYt+f
+/system logging action
+set 3 bsd-syslog=yes remote=10.71.152.11 remote-port=5000 src-address=\
+    10.67.132.137
+/user group
+set full policy="local,telnet,ssh,ftp,reboot,read,write,policy,test,winbox,pas\
+    sword,web,sniff,sensitive,api,romon,dude,tikapp"
+/interface bridge port
+add bridge=BRIDGE_VLAN500 interface=OSE_VLAN500
+add bridge=BRIDGE_VLAN510 interface=OSE_VLAN510
+add bridge=BRIDGE_VLAN3000 interface=OSE_VLAN3000
+add bridge=BRIDGE_VLAN3010 interface=OSE_VLAN3010
+add bridge=BRIDGE_VLAN550 interface=OSE_VLAN550
+add bridge=BRIDGE_VLAN1000 hw=no interface=ether2
+add bridge=BRIDGE_VLAN1000 hw=no interface=ether3
+add bridge=BRIDGE_VLAN1000 hw=no interface=ether7
+/ip settings
+set accept-source-route=yes
+/ip address
+add address=192.168.88.1/24 comment=defconf interface=combo1 network=\
+    192.168.88.0
+add address=172.17.163.104 interface=OSE_internet_1 network=172.17.163.105
+add address=192.168.10.1/24 interface=OSE_VLAN500 network=192.168.10.0
+add address=192.168.11.1/24 interface=OSE_VLAN510 network=192.168.11.0
+add address=172.17.163.106 interface=OSE_nosec_1 network=172.17.163.107
+add address=192.168.30.1/24 interface=OSE_VLAN3000 network=192.168.30.0
+add address=192.168.31.1/24 interface=OSE_VLAN3010 network=192.168.31.0
+add address=192.168.201.1/24 interface=ether7 network=192.168.201.0
+add address=172.17.163.108 interface=OSE_wlan_1 network=172.17.163.109
+add address=192.168.15.1/24 interface=OSE_VLAN550 network=192.168.15.0
+add address=10.67.132.137/29 interface=OSE_MGMT network=10.67.132.136
+add address=192.168.100.1/24 interface=VLAN1000MGTM network=192.168.100.0
+add address=172.29.29.1/29 comment=SMOG interface=BRIDGE_VLAN500 network=\
+    172.29.29.0
+/ip dhcp-server network
+add address=192.168.1.0/24 dhcp-option=unifi dns-server=194.204.159.1 \
+    gateway=192.168.1.1 netmask=24
+add address=192.168.10.0/24 gateway=192.168.10.1
+add address=192.168.11.0/24 gateway=192.168.11.1
+add address=192.168.15.0/24 gateway=192.168.15.1
+add address=192.168.30.0/24 gateway=192.168.30.1
+add address=192.168.31.0/24 gateway=192.168.31.1
+add address=192.168.100.0/24 gateway=192.168.100.1
+add address=192.168.201.0/24 gateway=192.168.201.1
+/ip dns
+set servers=\
+    195.164.200.200,195.164.200.201,2001:a17:0:8585::200,2001:a17:0:8585::201
+/ip firewall mangle
+add action=log chain=forward
+/ip firewall nat
+add action=netmap chain=srcnat fragment=no out-interface=OSE_internet_1 \
+    src-address=192.168.10.0/24 to-addresses=100.100.109.0/26
+add action=netmap chain=dstnat dst-address=100.100.109.0/26 in-interface=\
+    OSE_internet_1 to-addresses=192.168.10.0/24
+add action=netmap chain=dstnat comment=SMOG dst-address=172.29.29.1 \
+    in-interface=OSE_internet_1 to-addresses=172.29.29.0/29
+add action=netmap chain=srcnat comment=SMOG fragment=no out-interface=\
+    OSE_internet_1 src-address=172.29.29.0/29 to-addresses=172.29.29.1
+add action=netmap chain=srcnat fragment=no out-interface=OSE_internet_1 \
+    src-address=192.168.11.0/24 to-addresses=100.100.109.0/26
+add action=netmap chain=dstnat dst-address=100.100.109.0/26 in-interface=\
+    OSE_internet_1 to-addresses=192.168.11.0/24
+add action=netmap chain=srcnat fragment=no out-interface=OSE_nosec_1 \
+    src-address=192.168.30.0/24 to-addresses=100.100.2.60/30
+add action=netmap chain=dstnat dst-address=100.100.2.60/30 in-interface=\
+    OSE_nosec_1 to-addresses=192.168.30.0/24
+add action=netmap chain=srcnat fragment=no out-interface=OSE_nosec_1 \
+    src-address=192.168.31.0/24 to-addresses=100.100.2.60/30
+add action=netmap chain=dstnat dst-address=100.100.2.60/30 in-interface=\
+    OSE_nosec_1 to-addresses=192.168.31.0/24
+add action=netmap chain=srcnat out-interface=OSE_wlan_1 src-address=\
+    192.168.15.0/24 to-addresses=100.100.34.64/30
+add action=netmap chain=dstnat dst-address=100.100.34.64/30 in-interface=\
+    OSE_wlan_1 to-addresses=192.168.15.0/24
+/ip route
+add distance=1 gateway=172.17.163.105 routing-mark=VRF_500
+add distance=1 gateway=172.17.163.107 routing-mark=VRF_3000
+add distance=1 gateway=172.17.163.109 routing-mark=VRF_550
+add distance=1 gateway=10.67.132.138
+/ip route vrf
+add export-route-targets=1:500 import-route-targets=1:500 interfaces=\
+    OSE_internet_1,BRIDGE_VLAN500,BRIDGE_VLAN510,OSE_VLAN510 \
+    route-distinguisher=1:500 routing-mark=VRF_500
+add export-route-targets=1:3000 import-route-targets=1:3000 interfaces=\
+    OSE_nosec_1,BRIDGE_VLAN3000,BRIDGE_VLAN3010 route-distinguisher=1:3000 \
+    routing-mark=VRF_3000
+add export-route-targets=1:550 import-route-targets=1:550 interfaces=\
+    OSE_wlan_1,BRIDGE_VLAN550,OSE_VLAN550 route-distinguisher=1:550 \
+    routing-mark=VRF_550
+/ipv6 address
+add address=2001:a17:2:f1ea::1 advertise=no interface=OSE_internet_1
+add address=2001:a17:81e0:1300::1 interface=OSE_VLAN500
+add address=2001:a17:81e0:1301::1 interface=OSE_VLAN510
+add address=2001:a17:2:f1eb::1 advertise=no interface=OSE_nosec_1
+add address=2001:a17:81e0:13e0::1 interface=OSE_VLAN3000
+add address=2001:a17:81e0:13e1::1 interface=OSE_VLAN3010
+add address=2001:a17:2:f1ec::1 advertise=no interface=OSE_wlan_1
+add address=2001:a17:81e0:13f0::1 interface=OSE_VLAN550
+/ipv6 firewall mangle
+add action=log chain=forward
+/ipv6 nd
+set [ find default=yes ] advertise-dns=no
+/ipv6 route
+add distance=1 gateway=2001:a17:2:f1ea::2
+add distance=1 gateway=2001:a17:2:f1eb::2
+add distance=1 gateway=2001:a17:2:f1ec::2
+/lcd pin
+set hide-pin-number=yes pin-number=2600
+/radius
+add address=10.71.152.129 secret=Ose_key:!@#45 service=login
+add address=10.71.156.129 secret=Ose_key:!@#45 service=login
+/snmp
+set enabled=yes trap-version=2
+/system clock
+set time-zone-name=Europe/Warsaw
+/system identity
+set name=321506_CPE_001
+/system logging
+set 0 action=remote
+set 1 action=remote
+set 2 action=remote
+set 3 action=remote
+/system note
+set note="All connections  are  monitored  and  recored  disconnect IMMEDIATLE\
+    Y  if  you  are  not  an  authorized  user!"
+/system ntp client
+set enabled=yes primary-ntp=10.71.120.135 secondary-ntp=10.71.8.135
+/user aaa
+set use-radius=yes
