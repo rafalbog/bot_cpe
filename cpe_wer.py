@@ -3,6 +3,7 @@ import paramiko
 import subprocess
 import re
 diagnostyka_dict={}
+
 ## sprawdzenie czy urzadzenie jest dostepne
 def czy_dostepne_urzadzenie(hosta):
     proc= subprocess.Popen(
@@ -86,58 +87,69 @@ def wykonaj_diagnostyke_Huawei(hosta, un, pwd):
         return VRF_dic
     def C_display_arp():
         ## regex do ipv4 \b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b
-        ## regex do MAC adresu \b([0-9a-f-]){14}(?=.*-)\b  >> ulepszony \b([0-9a-f-]){14}\b
+        ## regex do MAC adresu \b([0-9a-f-]){14}(?=.*-)\b  >> ulepszony \b([0-9a-f-]){14}\b >> ulepszony \b([0-9a-f]|[-]){14}\b
         ## regex do VRF \b(VRF)[_0-9A-Z]{1,}|(default)
         stdout=polaczCPE_USG(hosta, "display arp", un, pwd)
-        # regex_ipv4=re.compile(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b")
-        # regex_MAC=re.compile(r"\b([0-9a-f-]){14}\b")
-        # regex_VRF=re.compile(r"\b(VRF)[_0-9A-Z]{1,}|(default)")
         ARP_dic: List[any]=[]
         tempARP=[]
-        a=[]
         for line in stdout.splitlines():
             ###regex na ipv4
             if re.search(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", line):
                 tempARP.append(re.search(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", line).group())
                 ###regex do MAC
             if re.search(r"\b([0-9a-f]|[-]){14}\b",line):
-                print(re.match(r"\b([0-9a-f]|[-]){14}\b",line))
                 tempARP.append(re.search(r"\b([0-9a-f]|[-]){14}\b",line).group())
                 ###regex do VRF
             if re.search(r"\b(VRF)[_0-9A-Z]{1,}|(default)",line):
-                print(re.match(r"\b(VRF)[_0-9A-Z]{1,}|(default)", line))
                 tempARP.append(re.search(r"\b(VRF)[_0-9A-Z]{1,}|(default)",line).group())
-                ############# do sprawdzenia regex!!!!!!!
-            # print(tempARP)### nie appenduje sie lista prawidlowo
-            ARP_dic.append(tempARP)
+                ### regex był OK, problemem było samo re.match rozwiazaniem bylo re.search
+            #ARP_dic.append(tempARP)nie appenduje sie lista prawidlowo
+            #ARP_dic.append(tempARP) >>> przez referencje dziala, stad po wyczyszczeniu jest czysto
+            if  tempARP != [] :
+                ARP_dic.append(tempARP[:])
             tempARP.clear()
-            print(ARP_dic)
         return ARP_dic
     def C_display_in_b ():
+        ## regex do wyłapana tylko nazw interfacow \b(GigabitEthernet){1}\S{1,9}
+        ## regex tylko na WAN (GigabitEthernet)[0-9][\/][0-9][\/][0-9][\.]\S{1,9}
+        ## regex do up/down ale tez wylapuje inne interface \b(up)\b|\b(down)\b
+        ### pomysł wyszukać linie zawierające interface, vlany i je podzielic do listy
+
         return polaczCPE_USG(hosta, "display interface brief", un, pwd)
     def C_display_ip_interface_b():
+        ###pobranie adresacji z interfejsow i z vlanow, tyylko linie zawierajace ip4 brane pod uwage
         return polaczCPE_USG(hosta, "display  ip interface  brief", un, pwd)
     def C_display_nat_add ():
+        ### pobranie adresacji cgnat i przypisane jej do ofpowiedniirgo vrf >>> nie wiem jak zrobic ;c
         return polaczCPE_USG(hosta,"display  nat address-group all-systems" , un, pwd)
     def C_display_curr_conf ():
+        ## na chwile obecna nic z tego nie potrzebuje
+        ## przyszlosciowo pobranie dnsow?
+        ## sprawdzenie czy sa w konfiguracji informacje o rulce diagnostyka
         return polaczCPE_USG(hosta,"display  current-configuration", un, pwd)
     def C_ping ():
+    ## tylko statystyki pingow zebrac, w przypadku wystepowania packet loss wywalic error
+    ## w przypadku 100% start dodac tez pingowanie pozostalych adresow, jezeli brak pinga to nie podlaczony sw/ap
+    ## dodac pingi na ap i sw
         return polaczCPE_USG(hosta, "ping 192.168.100.21" , un, pwd)
+
     def C_display_route_static ():
+        ### pobrać z tego miejsca adresy do pingowania i nazwy VRF
+
         return polaczCPE_USG(hosta, "display  current-configuration | include  route-static" , un, pwd)
     def C_ping_c10_f_s1472 ():
         return polaczCPE_USG(hosta, "ping -c 10 -f -s 1472 192.168.100.21", un, pwd)
     def C_display_firewall_session_table ():
-        return polaczCPE_USG(hosta, "display  firewall  session table", un, pwd)
+        ## regex do protokolow ^\s*([^ \t]+).* , ale tylko wtedy jezeli w linii jest adres ip
+        # > nie krytyczna funkcjonalnosc
+        #podusmować ilość sesji w każdym protokole, podsumowac ile adresów jest przychodzących i wychodzących
+        #
+        print(polaczCPE_USG(hosta, "display  firewall  session table", un, pwd))
     if czy_dostepne_urzadzenie(hosta):
-        # dziala OK diagnostyka_dict["VRF_instance"]=C_display_ip_vpn_instance()
-        diagnostyka_dict["ARP"]=C_display_arp()
-        ### dodany jako słownik, przykład odwołania
-        ### test["VRF_instance"][0][0] >>>  VRF_1_DATA
-        ###test["VRF_instance"][1][1] >>>>11:1
-        ###test["VRF_instance"][2][0]>>>> VRF_1_NOSEC
-        # C_display_arp()
-        # C_display_firewall_session_table
+        # dziala OK
+        #diagnostyka_dict["VRF_instance"]=C_display_ip_vpn_instance()
+        #diagnostyka_dict["ARP"]=C_display_arp()
+        #diagnostyka_dict["firewall_session_table"]=C_display_firewall_session_table()
         # C_display_in_b()
         # C_display_ip_interface_b()
         # C_display_nat_add()
@@ -184,7 +196,17 @@ print(model_CPE)
 if "USG" in model_CPE:
     test=wykonaj_diagnostyke_Huawei("10.68.10.105", un, pwd)
     print(f"  test1  i test 2 ")
+    # przykład odczytu słownika
     # print(test["VRF_instance"][0][0])
     # print(test["VRF_instance"][1][1])
     # print(test["VRF_instance"][2][0])
-    print(test)
+    # print(test["ARP"][0][0]) 192.168.0.1
+    # print(test["ARP"][1][0]) 192.168.10.1
+    # print(test["ARP"][2][0]) 192.168.10.230
+    # print(test["ARP"][3][0]) 192.168.10.204
+    # print(test["ARP"][1][1]) 2c97-b1f7-a9bf
+    # print(test["ARP"][2][1]) a0f3-c184-245b
+    # print(test["ARP"][3][1]) 0024-1d6a-cde2
+    # print(test["ARP"][1][2]) VRF_1_DATA
+    # print(test["ARP"][2][2]) VRF_1_DATA
+    # print(test["ARP"][3][2]) VRF_1_DATA
