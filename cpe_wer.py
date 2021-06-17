@@ -1,9 +1,7 @@
 from typing import List, Any, Dict, Union
-
 import paramiko
 import subprocess
 import re
-
 diagnostyka_dict={}
 ## sprawdzenie czy urzadzenie jest dostepne
 def czy_dostepne_urzadzenie(hosta):
@@ -86,32 +84,35 @@ def wykonaj_diagnostyke_Huawei(hosta, un, pwd):
             if regex_VRF.search(line):
                  VRF_dic.append(line.split())
         return VRF_dic
-
     def C_display_arp():
         ## regex do ipv4 \b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b
         ## regex do MAC adresu \b([0-9a-f-]){14}(?=.*-)\b  >> ulepszony \b([0-9a-f-]){14}\b
         ## regex do VRF \b(VRF)[_0-9A-Z]{1,}|(default)
         stdout=polaczCPE_USG(hosta, "display arp", un, pwd)
-
         # regex_ipv4=re.compile(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b")
         # regex_MAC=re.compile(r"\b([0-9a-f-]){14}\b")
         # regex_VRF=re.compile(r"\b(VRF)[_0-9A-Z]{1,}|(default)")
-        ARP_dic=[]
+        ARP_dic: List[any]=[]
         tempARP=[]
+        a=[]
         for line in stdout.splitlines():
-            if re.match(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", line):
+            ###regex na ipv4
+            if re.search(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", line):
                 tempARP.append(re.search(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", line).group())
-            if re.match(r"\b([0-9a-f-]){14}\b",line):
-                tempARP.append(re.search(r"\b([0-9a-f-]){14}\b",line).group())
-            if re.match(r"\b(VRF)[_0-9A-Z]{1,}|(default)",line):
+                ###regex do MAC
+            if re.search(r"\b([0-9a-f]|[-]){14}\b",line):
+                print(re.match(r"\b([0-9a-f]|[-]){14}\b",line))
+                tempARP.append(re.search(r"\b([0-9a-f]|[-]){14}\b",line).group())
+                ###regex do VRF
+            if re.search(r"\b(VRF)[_0-9A-Z]{1,}|(default)",line):
+                print(re.match(r"\b(VRF)[_0-9A-Z]{1,}|(default)", line))
                 tempARP.append(re.search(r"\b(VRF)[_0-9A-Z]{1,}|(default)",line).group())
                 ############# do sprawdzenia regex!!!!!!!
-
-            #print(tempARP)
-            #ARP_dic.append(tempARP)
-            #tempARP.clear()
-        print(tempARP)
-        return tempARP
+            # print(tempARP)### nie appenduje sie lista prawidlowo
+            ARP_dic.append(tempARP)
+            tempARP.clear()
+            print(ARP_dic)
+        return ARP_dic
     def C_display_in_b ():
         return polaczCPE_USG(hosta, "display interface brief", un, pwd)
     def C_display_ip_interface_b():
@@ -135,7 +136,6 @@ def wykonaj_diagnostyke_Huawei(hosta, un, pwd):
         ### test["VRF_instance"][0][0] >>>  VRF_1_DATA
         ###test["VRF_instance"][1][1] >>>>11:1
         ###test["VRF_instance"][2][0]>>>> VRF_1_NOSEC
-
         # C_display_arp()
         # C_display_firewall_session_table
         # C_display_in_b()
@@ -183,9 +183,8 @@ model_CPE=sprawdz_model_CPE(polaczCPE("10.68.10.105", "display version", un, pwd
 print(model_CPE)
 if "USG" in model_CPE:
     test=wykonaj_diagnostyke_Huawei("10.68.10.105", un, pwd)
-
     print(f"  test1  i test 2 ")
-    print(test["VRF_instance"][0][0])
-    print(test["VRF_instance"][1][1])
-    print(test["VRF_instance"][2][0])
+    # print(test["VRF_instance"][0][0])
+    # print(test["VRF_instance"][1][1])
+    # print(test["VRF_instance"][2][0])
     print(test)
