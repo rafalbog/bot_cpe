@@ -111,12 +111,55 @@ def wykonaj_diagnostyke_Huawei(hosta, un, pwd):
             tempARP.clear()
         return ARP_dic
     def C_display_in_b ():
+        display_inb={}
+        tempWAN = []
+        tempinnyport=[]
+        uszkodzneporty= {}
+        stdout=polaczCPE_USG(hosta, "display interface brief", un, pwd)
+        for line in stdout.splitlines():
+
+            if "up" in line:
+                if re.search(r"(GigabitEthernet)", line):
+                    if re.search(r"[0-9][\/][0-9][\/][0-9][\.]\S{1,9}", line):
+                        tempWAN.append(re.search(r"[0-9][\/][0-9][\/][0-9][\.]\S{1,9}", line).group())
+                    else:
+                        ### wyszukamy kazdy  interfejs up czy wan czy nie wan
+                        tempinnyport.append(re.search(r"(GigabitEthernet)[0-9][\/][0-9][\/][0-9]", line).group())
+                        temp=tempinnyport[0]
+                        ### wyszukamy porty z bledami regex do wyszukiwania \s[1-9]{1}[0-9]{0,10}\s
+                        ### regex na wszystkie wartosci czy sa bledy na int czy nie \s[0-9]{1,8}\s
+                        if re.search((r"\s[0-9]{1,8}\s"), line):
+                            ### do zweryfikowania dlaczego nie drukuje sie prawidlowa ilosc int z bledami/bez
+                            temp2=re.search((r"\s[0-9]{1,8}\s"), line)
+                            uszkodzneporty= { temp : (temp2.group())}
+                            ## do weryfikacji czy takie przekazanie dziala z portami uszkodzonymi
+                            print(uszkodzneporty)
+
+
+
+
+
+            #
+            # if  tempWAN != [] :
+            #     display_inb["WAN"] =tempWAN[:]
+            # tempWAN.clear()
+            # if tempinnyport !=[]:
+            #     display_inb.append(tempinnyport[:])
+            # tempinnyport.clear()
+        # print(tempinnyport)
+        # print(tempWAN)
+        display_inb["WAN"]=tempWAN
+        display_inb["portyUP"]=tempinnyport
+
+
         ## regex do wyłapana tylko nazw interfacow \b(GigabitEthernet){1}\S{1,9}
         ## regex tylko na WAN (GigabitEthernet)[0-9][\/][0-9][\/][0-9][\.]\S{1,9}
+        ###
         ## regex do up/down ale tez wylapuje inne interface \b(up)\b|\b(down)\b
         ### pomysł wyszukać linie zawierające interface, vlany i je podzielic do listy
+        print(display_inb)
 
-        return polaczCPE_USG(hosta, "display interface brief", un, pwd)
+        return  display_inb
     def C_display_ip_interface_b():
         ###pobranie adresacji z interfejsow i z vlanow, tyylko linie zawierajace ip4 brane pod uwage
         return polaczCPE_USG(hosta, "display  ip interface  brief", un, pwd)
@@ -151,7 +194,7 @@ def wykonaj_diagnostyke_Huawei(hosta, un, pwd):
         #diagnostyka_dict["VRF_instance"]=C_display_ip_vpn_instance()
         #diagnostyka_dict["ARP"]=C_display_arp()
         #diagnostyka_dict["firewall_session_table"]=C_display_firewall_session_table()
-        # C_display_in_b()
+        C_display_in_b()
         # C_display_ip_interface_b()
         # C_display_nat_add()
         # C_display_curr_conf()
@@ -190,12 +233,16 @@ pwd = 'Ose!@#45'
 un = 'ose'
 ### model CPE sprawdzamy
 ###
-model_CPE=sprawdz_model_CPE(polaczCPE("10.68.10.105", "display version", un, pwd))
+if czy_dostepne_urzadzenie("10.68.10.105"):
+    model_CPE=sprawdz_model_CPE(polaczCPE("10.68.10.105", "display version", un, pwd))
+else:
+    print("nie dostepne")
 ##### w sprawdz_model_cpe trzeba dodac regexa do wszystkich rodzajow CPE
 ##### w polacz cpe trzeba wpisac wszystkie komendy do sprwadzenia wersji czy to FG czy MT
 print(model_CPE)
 if "USG" in model_CPE:
     test=wykonaj_diagnostyke_Huawei("10.68.10.105", un, pwd)
+
     print(f"  test1  i test 2 ")
     # przykład odczytu słownika
     # print(test["VRF_instance"][0][0])
