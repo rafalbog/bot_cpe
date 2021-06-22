@@ -3,6 +3,7 @@ from typing import List, Any, Dict, Union
 import paramiko
 import subprocess
 import re
+import pprint
 diagnostyka_dict={}
 
 ## sprawdzenie czy urzadzenie jest dostepne
@@ -117,7 +118,6 @@ def wykonaj_diagnostyke_Huawei(hosta, un, pwd):
         uszkodzneporty= {}
         stdout=polaczCPE_USG(hosta, "display interface brief", un, pwd)
         for line in stdout.splitlines():
-
             if "up" in line:
                 if re.search(r"(GigabitEthernet)", line):
                     if re.search(r"[0-9][\/][0-9][\/][0-9][\.]\S{1,9}", line):
@@ -125,44 +125,75 @@ def wykonaj_diagnostyke_Huawei(hosta, un, pwd):
                     else:
                         ### wyszukamy kazdy  interfejs up czy wan czy nie wan
                         tempinnyport.append(re.search(r"(GigabitEthernet)[0-9][\/][0-9][\/][0-9]", line).group())
-                        temp=tempinnyport[0]
+                        temp= tempinnyport[0]
                         ### wyszukamy porty z bledami regex do wyszukiwania \s[1-9]{1}[0-9]{0,10}\s
                         ### regex na wszystkie wartosci czy sa bledy na int czy nie \s[0-9]{1,8}\s
                         if re.search((r"\s[0-9]{1,8}\s"), line):
                             ### do zweryfikowania dlaczego nie drukuje sie prawidlowa ilosc int z bledami/bez
-                            temp2=re.search((r"\s[0-9]{1,8}\s"), line)
-                            uszkodzneporty= { temp : (temp2.group())}
-                            ## do weryfikacji czy takie przekazanie dziala z portami uszkodzonymi
-                            print(uszkodzneporty)
+                            tempar=re.findall(r"\s[0-9]{1,8}\b", line)
+                            ## findall zwraca wynik w postaci tabeli, tutaj przekazany wynik do slownika
+                            #budowa slownika nazwa interface: "INuti/OUTuti/INerror/OUTerror" 0,0,0,0
+                            if int (tempar[2])!=0 or int ( tempar[3])!=0:
+                                uszkodzneporty .update( {temp:["INuti/OUTuti/INerror/OUTerror", tempar] })
 
+        if uszkodzneporty !={}:
+            display_inb["uszkodzone porty"]=uszkodzneporty
+        else:
+            display_inb["uszkodzone porty"]="brak"
 
-
-
-
-            #
-            # if  tempWAN != [] :
-            #     display_inb["WAN"] =tempWAN[:]
-            # tempWAN.clear()
-            # if tempinnyport !=[]:
-            #     display_inb.append(tempinnyport[:])
-            # tempinnyport.clear()
-        # print(tempinnyport)
-        # print(tempWAN)
         display_inb["WAN"]=tempWAN
         display_inb["portyUP"]=tempinnyport
-
-
         ## regex do wyłapana tylko nazw interfacow \b(GigabitEthernet){1}\S{1,9}
         ## regex tylko na WAN (GigabitEthernet)[0-9][\/][0-9][\/][0-9][\.]\S{1,9}
         ###
         ## regex do up/down ale tez wylapuje inne interface \b(up)\b|\b(down)\b
-        ### pomysł wyszukać linie zawierające interface, vlany i je podzielic do listy
-        print(display_inb)
+        ### pomysł wyszukać linie zawierające interface, vlany i je podzielic do listy>> z polecenia dis ip in b
+        ### r"\s[0-9]{1,8}\b"
 
         return  display_inb
     def C_display_ip_interface_b():
+        stdout= polaczCPE_USG(hosta, "display  ip interface  brief", un, pwd)
+        vlanlist= {}  ### vlan z adresacja jaka ma brame
+        WAN_IG_iplist= {} ### zmienna z interfejsami gigabite ethernet WAN z adres ip przypisany
+        IG_iplist = {}###zmienna z interfejsami gigabite  nieWAN z ip
+        Loopback_int={}
+        display_ip_in_b={}
         ###pobranie adresacji z interfejsow i z vlanow, tyylko linie zawierajace ip4 brane pod uwage
-        return polaczCPE_USG(hosta, "display  ip interface  brief", un, pwd)
+        for line in stdout.splitlines():
+            ### wyszukujemy port wan
+            if re.search(r"(GigabitEthernet)[0-9][\/][0-9][\/][0-9][\.]\S{1,9}", line):
+                ### czy znaleziony port WAN ma adres IP przypisany
+                if re.search (r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", line):
+                    WAN_IG_iplist.update({ re.search(r"(GigabitEthernet)[0-9][\/][0-9][\/][0-9][\.]\S{1,9}", line).group() : [ re.search (r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", line).group() , re.search (r"[\/]([0-9]{2})", line).group(1)]})
+                # wyszukiwanie maski [\/]([0-9]{2}) >>> wpis group(1) zwraca maske bez slash
+                ### wyszukiwanie interface GE nieWAN
+            if re.search(r"(GigabitEthernet)[0-9][\/][0-9][\/][0-9]\s", line):
+                ### czy znaleziony port nieWAN ma adres IP przypisany
+                if re.search (r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", line):
+                    IG_iplist.update({ re.search(r"(GigabitEthernet)[0-9][\/][0-9][\/][0-9]\s", line).group() : [ re.search (r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", line).group() , re.search (r"[\/]([0-9]{2})", line).group(1)]})
+            ### wyszukiwanie interface loopback
+            if re.search(r"(LoopBack)[0-9]{1,8}", line):
+                ### sprawdzenie czy loopback ma adres ip
+                if re.search (r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", line):
+                    Loopback_int.update({re.search(r"(LoopBack)[0-9]{1,8}", line).group():[ re.search (r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", line).group() , re.search (r"[\/]([0-9]{2})", line).group(1)] })
+                else:### w przypadku jezeli nie jest skonfigurowany adres ip na loopback
+                    Loopback_int.update({re.search(r"(LoopBack)[0-9]{1,8}", line).group():[ "brak adresu","brak adresu"] })
+
+            ### wyszukiwanie vlanow
+            if re.search(r"(Vlanif)[0-9]{1,8}", line):
+                ## wyszukiwanie skonfigureowanego adresu do vlanu
+                if re.search (r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", line):
+                    vlanlist.update({ re.search(r"(Vlanif)[0-9]{1,8}", line).group():[ re.search (r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", line).group() , re.search (r"[\/]([0-9]{2})", line).group(1)]
+                        })
+
+        display_ip_in_b["VLAN"]=vlanlist
+        display_ip_in_b["WAN IP"]=WAN_IG_iplist
+        if Loopback_int == {}:
+            display_ip_in_b["Loopback_int"]="brak skonfigurowanego loopbacka"
+        if IG_iplist == {}:
+            display_ip_in_b["Interface z ip"] = "brak interface nieWAN  z adresem IP"
+
+        return display_ip_in_b
     def C_display_nat_add ():
         ### pobranie adresacji cgnat i przypisane jej do ofpowiedniirgo vrf >>> nie wiem jak zrobic ;c
         return polaczCPE_USG(hosta,"display  nat address-group all-systems" , un, pwd)
@@ -191,16 +222,18 @@ def wykonaj_diagnostyke_Huawei(hosta, un, pwd):
         print(polaczCPE_USG(hosta, "display  firewall  session table", un, pwd))
     if czy_dostepne_urzadzenie(hosta):
         # dziala OK
-        #diagnostyka_dict["VRF_instance"]=C_display_ip_vpn_instance()
-        #diagnostyka_dict["ARP"]=C_display_arp()
-        #diagnostyka_dict["firewall_session_table"]=C_display_firewall_session_table()
-        C_display_in_b()
-        # C_display_ip_interface_b()
+        diagnostyka_dict["VRF_instance"]=C_display_ip_vpn_instance()
+        diagnostyka_dict["ARP"]=C_display_arp()
+        diagnostyka_dict["display_int_brief"]=C_display_in_b()
+        diagnostyka_dict["display ip interface"]=C_display_ip_interface_b()
+        #poniższe w trakcie
         # C_display_nat_add()
         # C_display_curr_conf()
         # C_ping()
         # C_display_route_static()
         # C_ping_c10_f_s1472()
+        # diagnostyka_dict["firewall_session_table"]=C_display_firewall_session_table()
+
         return diagnostyka_dict
     else:
         return False
@@ -258,5 +291,6 @@ if "USG" in model_CPE:
     # print(test["ARP"][1][2]) VRF_1_DATA
     # print(test["ARP"][2][2]) VRF_1_DATA
     # print(test["ARP"][3][2]) VRF_1_DATA
-    ##dsds
+    pp=pprint.pformat(test)
+    print(pp)
 
