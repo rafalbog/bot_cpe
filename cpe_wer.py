@@ -111,6 +111,7 @@ def wykonaj_diagnostyke_Huawei(hosta, un, pwd):
                 ARP_dic.append(tempARP[:])
             tempARP.clear()
         return ARP_dic
+
     def C_display_in_b ():
         display_inb={}
         tempWAN = []
@@ -195,23 +196,73 @@ def wykonaj_diagnostyke_Huawei(hosta, un, pwd):
 
         return display_ip_in_b
     def C_display_nat_add ():
-        ### pobranie adresacji cgnat i przypisane jej do ofpowiedniirgo vrf >>> nie wiem jak zrobic ;c
-        return polaczCPE_USG(hosta,"display  nat address-group all-systems" , un, pwd)
+        stdout=polaczCPE_USG(hosta,"display  nat address-group all-systems" , un, pwd)
+        VRF_nat={}
+
+
+        for line in stdout:
+            ### wyszukujemy linie z VRF, i przypisujemy/aktualizujemy wartosc temp
+            if re.search(r"(VRF_1_)((WLAN)|(NOSEC)|(DATA))", line):
+                temp=re.search(r"(VRF_1_)((WLAN)|(NOSEC)|(DATA))", line).group()
+                ### wyszukujemy adres ip w linii i przypisujemy do temp
+            if re.search(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", line):
+                VRF_nat.update({temp: [re.search(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", line).group()] })
+
+
+
+
+        return VRF_nat
     def C_display_curr_conf ():
         ## na chwile obecna nic z tego nie potrzebuje
         ## przyszlosciowo pobranie dnsow?
         ## sprawdzenie czy sa w konfiguracji informacje o rulce diagnostyka
         return polaczCPE_USG(hosta,"display  current-configuration", un, pwd)
     def C_ping ():
-    ## tylko statystyki pingow zebrac, w przypadku wystepowania packet loss wywalic error
-    ## w przypadku 100% start dodac tez pingowanie pozostalych adresow, jezeli brak pinga to nie podlaczony sw/ap
-    ## dodac pingi na ap i sw
-        return polaczCPE_USG(hosta, "ping 192.168.100.21" , un, pwd)
+        ## tylko statystyki pingow zebrac, w przypadku wystepowania packet loss wywalic error
+        ## w przypadku 100% start dodac tez pingowanie pozostalych adresow, jezeli brak pinga to nie podlaczony sw/ap
+        ## dodac pingi na ap i sw
+        ### trzeba zrobic ping na adresy z mgmt, czyli z danych ktore juz uzyskalismy z poprzednich funkcji
+        # 'display ip interface': {'VLAN': {'Vlanif1000': ['192.168.100.1', '24'],
+        #w sumie ping na adresy 11 12 13 14 15 16  21 22 23 24 25  26  niestety brak moze byc widocznych arp urzadzen i dopiero po ping beda widoczne
+        ## ale tez pingi po koleii beda dlugo sie robic bardzo..
+        stdout = { "sw1": polaczCPE_USG(hosta, "ping 192.168.100.21" , un, pwd),
+        "sw2": polaczCPE_USG(hosta, "ping 192.168.100.22" , un, pwd),
+        "sw3" : polaczCPE_USG(hosta, "ping 192.168.100.23", un, pwd),
+        "ap1" : polaczCPE_USG(hosta, "ping 192.168.100.11", un, pwd),
+        "ap2" : polaczCPE_USG(hosta, "ping 192.168.100.12", un, pwd),
+        "ap3" : polaczCPE_USG(hosta, "ping 192.168.100.13", un, pwd)
+        }
+        dostepnosc_sw_ap={}
+        for line in stdout:
+            for line2 in stdout.items(line):
+                dostepnosc_sw_ap.update({ stdout.items(line): ["packet loss", re.search(r"([0-9]){1,3}[.][0-9]{1,2}[%]", line2).group()] })
+                ### ([0-9]){1,3}[.][0-9]{1,2}[%] regex na zlapanie % packet loss
+
+
+
+
+
+
+        return dostepnosc_sw_ap
 
     def C_display_route_static ():
-        ### pobrać z tego miejsca adresy do pingowania i nazwy VRF
+        stdout = polaczCPE_USG(hosta, "display  current-configuration | include  route-static" , un, pwd)
+        VRF_route={}
 
-        return polaczCPE_USG(hosta, "display  current-configuration | include  route-static" , un, pwd)
+        for line in stdout:
+
+                ### regex tylko na mgmt (10)(?:[0-9]{0,3}\.){3}[0-9]{1,3}\b, doda tylko mgmt
+            if re.search(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", line):
+                #### (?:[1-9][0-9]{1,3}\.){3}[0-9]{1,3}\b regex gdzie adres nie zaczyna sie od 0
+                VRF_route.update({"MGMT": [re.search(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", line).group()]})
+
+            if re.search(r"(VRF_1_)((WLAN)|(NOSEC)|(DATA))", line):
+                temp=re.search(r"(VRF_1_)((WLAN)|(NOSEC)|(DATA))", line).group()
+            if re.search(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", line):
+                #### (?:[1-9][0-9]{1,3}\.){3}[0-9]{1,3}\b regex gdzie adres nie zaczyna sie od 0
+                VRF_route.update({temp: [re.search(r"(?:[1-9][0-9]{1,3}\.){3}[0-9]{1,3}\b", line).group()] })
+
+        return VRF_route
     def C_ping_c10_f_s1472 ():
         return polaczCPE_USG(hosta, "ping -c 10 -f -s 1472 192.168.100.21", un, pwd)
     def C_display_firewall_session_table ():
@@ -222,15 +273,18 @@ def wykonaj_diagnostyke_Huawei(hosta, un, pwd):
         print(polaczCPE_USG(hosta, "display  firewall  session table", un, pwd))
     if czy_dostepne_urzadzenie(hosta):
         # dziala OK
-        diagnostyka_dict["VRF_instance"]=C_display_ip_vpn_instance()
-        diagnostyka_dict["ARP"]=C_display_arp()
-        diagnostyka_dict["display_int_brief"]=C_display_in_b()
-        diagnostyka_dict["display ip interface"]=C_display_ip_interface_b()
+        # diagnostyka_dict["VRF_instance"]=C_display_ip_vpn_instance()
+        # diagnostyka_dict["ARP"]=C_display_arp()
+        # diagnostyka_dict["display_int_brief"]=C_display_in_b()
+        # diagnostyka_dict["display ip interface"]=C_display_ip_interface_b()
+        #diagnostyka_dict["VRF_nat"]=C_display_nat_add()  ## do przeteestowania
+        # diagnostyka_dict["route static"]= C_display_route_static()
+        # diagnostyka_dict["dostepne sw ap"]=  C_ping()
         #poniższe w trakcie
-        # C_display_nat_add()
+
         # C_display_curr_conf()
-        # C_ping()
-        # C_display_route_static()
+
+
         # C_ping_c10_f_s1472()
         # diagnostyka_dict["firewall_session_table"]=C_display_firewall_session_table()
 
