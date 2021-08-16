@@ -200,17 +200,13 @@ def wykonaj_diagnostyke_Huawei(hosta, un, pwd):
         stdout=polaczCPE_USG(hosta,"display  nat address-group all-systems  " , un, pwd)
         VRF_nat={}
 
-
-
         for line in stdout.splitlines():
             ### wyszukujemy linie z VRF, i przypisujemy/aktualizujemy wartosc temp
             if re.search(r"(VRF_1_)((WLAN)|(NOSEC)|(DATA))", line):
                 temp=re.search(r"(VRF_1_)((WLAN)|(NOSEC)|(DATA))", line).group()
-                print(f"{temp}  dziala lub nie")
                 ### wyszukujemy adres ip w linii i przypisujemy do temp
             if (re.search(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", line) and temp is not None):
-                VRF_nat.update({temp: [re.search(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", line).group()] })
-                print(VRF_nat)
+                VRF_nat.update({temp: [re.findall(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", line)] })
 
         return VRF_nat
     def C_display_curr_conf ():
@@ -226,22 +222,22 @@ def wykonaj_diagnostyke_Huawei(hosta, un, pwd):
         # 'display ip interface': {'VLAN': {'Vlanif1000': ['192.168.100.1', '24'],
         #w sumie ping na adresy 11 12 13 14 15 16  21 22 23 24 25  26  niestety brak moze byc widocznych arp urzadzen i dopiero po ping beda widoczne
         ## ale tez pingi po koleii beda dlugo sie robic bardzo..
-        stdout = { "sw1": polaczCPE_USG(hosta, "ping 192.168.100.21" , un, pwd),
-        "sw2": polaczCPE_USG(hosta, "ping 192.168.100.22" , un, pwd),
-        "sw3" : polaczCPE_USG(hosta, "ping 192.168.100.23", un, pwd),
-        "ap1" : polaczCPE_USG(hosta, "ping 192.168.100.11", un, pwd),
-        "ap2" : polaczCPE_USG(hosta, "ping 192.168.100.12", un, pwd),
-        "ap3" : polaczCPE_USG(hosta, "ping 192.168.100.13", un, pwd)
+        stdout = { "sw1 192.168.100.21": polaczCPE_USG(hosta, "ping 192.168.100.21" , un, pwd),
+        "sw2 192.168.100.22": polaczCPE_USG(hosta, "ping 192.168.100.22" , un, pwd),
+         "sw3 192.168.100.23" : polaczCPE_USG(hosta, "ping 192.168.100.23", un, pwd),
+       "ap1 192.168.100.11" : polaczCPE_USG(hosta, "ping 192.168.100.11", un, pwd),
+        "ap2 192.168.100.12" : polaczCPE_USG(hosta, "ping 192.168.100.12", un, pwd),
+        "ap3 192.168.100.13" : polaczCPE_USG(hosta, "ping 192.168.100.13", un, pwd)
         }
         dostepnosc_sw_ap={}
         for line in stdout:
-            for line2 in stdout.items(line):
-                dostepnosc_sw_ap.update({ stdout.items(line): ["packet loss", re.search(r"([0-9]){1,3}[.][0-9]{1,2}[%]", line2).group()] })
-                ### ([0-9]){1,3}[.][0-9]{1,2}[%] regex na zlapanie % packet loss
-
-
-
-
+            if re.search(r"([0-9]){1,3}[.][0-9]{1,2}[%]", stdout[line]):
+                if re.search(r"(100.00%)", stdout[line]):
+                    dostepnosc_sw_ap.update( {line: ["nie podłaczone/brak"]})
+                elif re.search(r"(\s(0.00%)%)", stdout[line]):
+                    dostepnosc_sw_ap.update({ line: ["brak strat do sw/ap, packet loss", re.search(r"([0-9]){1,3}[.][0-9]{1,2}[%]", stdout[line]).group()] })
+                else:
+                    dostepnosc_sw_ap.update({ line: ["packet loss", re.search(r"([0-9]){1,3}[.][0-9]{1,2}[%]", stdout[line]).group()] })
 
 
         return dostepnosc_sw_ap
@@ -278,7 +274,10 @@ def wykonaj_diagnostyke_Huawei(hosta, un, pwd):
         ## regex do protokolow ^\s*([^ \t]+).* , ale tylko wtedy jezeli w linii jest adres ip
         # > nie krytyczna funkcjonalnosc
         #podusmować ilość sesji w każdym protokole, podsumowac ile adresów jest przychodzących i wychodzących
-        #
+        # \b[a-zC]{2,8} >> REGEX DI \\o protokolow i do current >>> do wypisania sumy sesji i do wypisania poszczegolnch sesji
+        # chce zrobic tak ze jezeli sesja sie powtarza to bedzie ddodawana do  juz powstalego prokotolu
+        # jezeli w danym protokole jest adres jakis konretny to ten adres zostane dodany a nastepnie kolejny adres docelowy
+        # i jest potrzebna kolejna wartosc slownikowa z statystykami na danym adresie ip i na ilu portach jest komunikacja
         print(polaczCPE_USG(hosta, "display  firewall  session table", un, pwd))
     if czy_dostepne_urzadzenie(hosta):
         # dziala OK
@@ -288,14 +287,14 @@ def wykonaj_diagnostyke_Huawei(hosta, un, pwd):
         diagnostyka_dict["display ip interface"]=C_display_ip_interface_b()
         diagnostyka_dict["VRF_nat"]=C_display_nat_add()
         diagnostyka_dict["route static"]= C_display_route_static()
-        #diagnostyka_dict["dostepne sw ap"]=  C_ping()
+        diagnostyka_dict["dostepne sw ap"]=  C_ping()
         #poniższe w trakcie
 
         # C_display_curr_conf()
 
 
         # C_ping_c10_f_s1472()
-        # diagnostyka_dict["firewall_session_table"]=C_display_firewall_session_table()
+        diagnostyka_dict["firewall_session_table"]=C_display_firewall_session_table()
 
         return diagnostyka_dict
     else:
