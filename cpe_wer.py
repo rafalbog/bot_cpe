@@ -253,14 +253,14 @@ def wykonaj_diagnostyke_Huawei(hosta, un, pwd):
                 ### regex tylko na mgmt (10)(?:[0-9]{0,3}\.){3}[0-9]{1,3}\b, doda tylko mgmt
             if re.search(r"(10)(?:[0-9]{0,3}\.){3}[0-9]{1,3}\b", line):
                 #### (?:[1-9][0-9]{1,3}\.){3}[0-9]{1,3}\b regex gdzie adres nie zaczyna sie od 0
-                VRF_route.update({"MGMT": [re.search(r"(10)(?:[0-9]{0,3}\.){3}[0-9]{1,3}\b", line).group()]})
+                VRF_route.update({"MGMT": re.search(r"(10)(?:[0-9]{0,3}\.){3}[0-9]{1,3}\b", line).group(0)})
 
             if re.search(r"(VRF_1_)((WLAN)|(NOSEC)|(DATA))", line):
                 temp=re.search(r"(VRF_1_)((WLAN)|(NOSEC)|(DATA))", line).group()
 
             if (re.search(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", line) and temp is not None):
                 #### (?:[1-9][0-9]{1,3}\.){3}[0-9]{1,3}\b regex gdzie adres nie zaczyna sie od 0
-                VRF_route.update({temp: [re.search(r"(?:[1-9][0-9]{1,3}\.){3}[0-9]{1,3}\b", line).group()]})
+                VRF_route.update({temp: re.search(r"(?:[1-9][0-9]{1,3}\.){3}[0-9]{1,3}\b", line).group(0)})
 
 
 
@@ -269,7 +269,18 @@ def wykonaj_diagnostyke_Huawei(hosta, un, pwd):
 
         return VRF_route
     def C_ping_c10_f_s1472 ():
-        return polaczCPE_USG(hosta, "ping -c 10 -f -s 1472 192.168.100.21", un, pwd)
+
+        pingi_polaczeniowka={}
+        print(diagnostyka_dict)
+        for adres in diagnostyka_dict["route static"]:
+            print(adres)## drukuje sie nazwa vrf ale juz adres vrf nie chce...
+
+            print(diagnostyka_dict[adres])## drukuje sie nazwa vrf ale juz adres vrf nie chce...
+
+            #stdout=polaczCPE_USG(hosta,f"ping -c -f -s 1472 {diagnostyka_dict[adres]} -vpn-instance {adres}")
+
+
+
     def C_display_firewall_session_table ():
         ## regex do protokolow ^\s*([^ \t]+).* , ale tylko wtedy jezeli w linii jest adres ip
         # > nie krytyczna funkcjonalnosc
@@ -278,23 +289,48 @@ def wykonaj_diagnostyke_Huawei(hosta, un, pwd):
         # chce zrobic tak ze jezeli sesja sie powtarza to bedzie ddodawana do  juz powstalego prokotolu
         # jezeli w danym protokole jest adres jakis konretny to ten adres zostane dodany a nastepnie kolejny adres docelowy
         # i jest potrzebna kolejna wartosc slownikowa z statystykami na danym adresie ip i na ilu portach jest komunikacja
-        print(polaczCPE_USG(hosta, "display  firewall  session table", un, pwd))
+
+        Nprotocols= {}
+
+        stdout=polaczCPE_USG(hosta, "display  firewall  session table", un, pwd)
+        for line in stdout.splitlines():
+
+            if re.search(r"(Current Total Sessions :)", line):
+                Nprotocols.update({  "Current Total Sessions ": re.search(r"[0-9]{1,999}", line  ).group(0)})
+
+
+## \b[a-zC-]{2,8}[a-z]{0,8}
+            if (re.search(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", line)):
+                temp=False
+                #### (?:[1-9][0-9]{1,3}\.){3}[0-9]{1,3}\b regex gdzie adres nie zaczyna sie od 0
+                for key in Nprotocols:
+                    if key==re.search(r"\b[a-zC-]{2,8}[a-z]{0,8}", line).group(0):
+                        Nprotocols[key][0]+=1
+                        temp=True
+
+                if temp==False:
+                    Nprotocols.update({re.search(r"\b[a-zC-]{2,8}[a-z]{0,8}", line).group(0):[1]})
+
+        print(Nprotocols)
+        return Nprotocols
+
+
+
     if czy_dostepne_urzadzenie(hosta):
         # dziala OK
-        diagnostyka_dict["VRF_instance"]=C_display_ip_vpn_instance()
-        diagnostyka_dict["ARP"]=C_display_arp()
-        diagnostyka_dict["display_int_brief"]=C_display_in_b()
-        diagnostyka_dict["display ip interface"]=C_display_ip_interface_b()
-        diagnostyka_dict["VRF_nat"]=C_display_nat_add()
+        # diagnostyka_dict["VRF_instance"]=C_display_ip_vpn_instance()
+        # diagnostyka_dict["ARP"]=C_display_arp()
+        # diagnostyka_dict["display_int_brief"]=C_display_in_b()
+        # diagnostyka_dict["display ip interface"]=C_display_ip_interface_b()
+        # diagnostyka_dict["VRF_nat"]=C_display_nat_add()
         diagnostyka_dict["route static"]= C_display_route_static()
-        diagnostyka_dict["dostepne sw ap"]=  C_ping()
+        # diagnostyka_dict["dostepne sw ap"]=  C_ping()
+        # diagnostyka_dict["firewall_session_table"]=C_display_firewall_session_table()
+        diagnostyka_dict["ping polaczeniowka"]=C_ping_c10_f_s1472()
+
         #poniższe w trakcie
 
         # C_display_curr_conf()
-
-
-        # C_ping_c10_f_s1472()
-        diagnostyka_dict["firewall_session_table"]=C_display_firewall_session_table()
 
         return diagnostyka_dict
     else:
@@ -355,4 +391,3 @@ if "USG" in model_CPE:
     # print(test["ARP"][3][2]) VRF_1_DATA
     pp=pprint.pformat(test)
     print(pp)
-
