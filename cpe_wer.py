@@ -271,15 +271,26 @@ def wykonaj_diagnostyke_Huawei(hosta, un, pwd):
     def C_ping_c10_f_s1472 ():
 
         pingi_polaczeniowka={}
-        print(diagnostyka_dict)
         for adres in diagnostyka_dict["route static"]:
-            print(adres)## drukuje sie nazwa vrf ale juz adres vrf nie chce...
+            if adres == "MGMT":
+                stdout= polaczCPE_USG(hosta, f"ping -s 1472 -f  {diagnostyka_dict['route static'][adres]}", un, pwd)
+            else:
+                stdout = polaczCPE_USG(hosta, f"ping -s 1472 -f -vpn-instance {adres}  {diagnostyka_dict['route static'][adres]}", un, pwd)
+            for line in stdout.splitlines():
+                if re.search(r"([0-9]){1,3}[.][0-9]{1,2}[%]\s", line):
+                    if re.search(r"(100.00%)",line):
+                        print(  re.search(r"(100.00%)",line))
+                        pingi_polaczeniowka.update({adres: ["nie podłaczone/brak"]})
+                    elif re.search(r"\s(0.00%)", adres):
+                        print(re.search(r"(\s(0.00%))", adres))
+                        pingi_polaczeniowka.update({adres: ["brak strat do sw/ap, packet loss",  re.search(r"([0-9]){1,3}[.][0-9]{1,2}[%]\s", line).group()]})
+                    else:
+                        pingi_polaczeniowka.update({adres: ["packet loss", re.search(r"([0-9]){1,3}[.][0-9]{1,2}[%]\s", line).group()]})
 
-            print(diagnostyka_dict[adres])## drukuje sie nazwa vrf ale juz adres vrf nie chce...
-
-            #stdout=polaczCPE_USG(hosta,f"ping -c -f -s 1472 {diagnostyka_dict[adres]} -vpn-instance {adres}")
 
 
+
+        print(pingi_polaczeniowka)
 
     def C_display_firewall_session_table ():
         ## regex do protokolow ^\s*([^ \t]+).* , ale tylko wtedy jezeli w linii jest adres ip
@@ -323,9 +334,10 @@ def wykonaj_diagnostyke_Huawei(hosta, un, pwd):
         # diagnostyka_dict["display_int_brief"]=C_display_in_b()
         # diagnostyka_dict["display ip interface"]=C_display_ip_interface_b()
         # diagnostyka_dict["VRF_nat"]=C_display_nat_add()
-        diagnostyka_dict["route static"]= C_display_route_static()
+        #
         # diagnostyka_dict["dostepne sw ap"]=  C_ping()
         # diagnostyka_dict["firewall_session_table"]=C_display_firewall_session_table()
+        diagnostyka_dict["route static"]= C_display_route_static()
         diagnostyka_dict["ping polaczeniowka"]=C_ping_c10_f_s1472()
 
         #poniższe w trakcie
@@ -364,15 +376,15 @@ pwd = 'Ose!@#45'
 un = 'ose'
 ### model CPE sprawdzamy
 ###
-if czy_dostepne_urzadzenie("10.68.10.105"):
-    model_CPE=sprawdz_model_CPE(polaczCPE("10.68.10.105", "display version", un, pwd))
+if czy_dostepne_urzadzenie("10.67.18.225"):
+    model_CPE=sprawdz_model_CPE(polaczCPE("10.67.18.225", "display version", un, pwd))
 else:
     print("nie dostepne")
 ##### w sprawdz_model_cpe trzeba dodac regexa do wszystkich rodzajow CPE
 ##### w polacz cpe trzeba wpisac wszystkie komendy do sprwadzenia wersji czy to FG czy MT
 print(model_CPE)
 if "USG" in model_CPE:
-    test=wykonaj_diagnostyke_Huawei("10.68.10.105", un, pwd)
+    test=wykonaj_diagnostyke_Huawei("10.67.18.225", un, pwd)
 
     print(f"  test1  i test 2 ")
     # przykład odczytu słownika
