@@ -329,17 +329,18 @@ def wykonaj_diagnostyke_Huawei(hosta, un, pwd):
 
     if czy_dostepne_urzadzenie(hosta):
         # dziala OK
-        # diagnostyka_dict["VRF_instance"]=C_display_ip_vpn_instance()
-        # diagnostyka_dict["ARP"]=C_display_arp()
-        # diagnostyka_dict["display_int_brief"]=C_display_in_b()
-        # diagnostyka_dict["display ip interface"]=C_display_ip_interface_b()
-        # diagnostyka_dict["VRF_nat"]=C_display_nat_add()
-        #
-        # diagnostyka_dict["dostepne sw ap"]=  C_ping()
-        # diagnostyka_dict["firewall_session_table"]=C_display_firewall_session_table()
+        diagnostyka_dict["VRF_instance"]=C_display_ip_vpn_instance()
+        diagnostyka_dict["ARP"]=C_display_arp()
+        ### interface regex musi zostac zmieniony, regex powinien pobierac rowniez dane jezeli nazwa portu jest 2 cyfrowa typu 1/0/11 1/0/10
+        diagnostyka_dict["display_int_brief"]=C_display_in_b()
+        diagnostyka_dict["display ip interface"]=C_display_ip_interface_b()
+        diagnostyka_dict["VRF_nat"]=C_display_nat_add()
+
+        diagnostyka_dict["dostepne sw ap"]=  C_ping()
+        diagnostyka_dict["firewall_session_table"]=C_display_firewall_session_table()
         diagnostyka_dict["route static"]= C_display_route_static()
         diagnostyka_dict["ping polaczeniowka"]=C_ping_c10_f_s1472()
-
+### dodanie odczytow optyki
         #poniższe w trakcie
 
         # C_display_curr_conf()
@@ -376,15 +377,16 @@ pwd = 'Ose!@#45'
 un = 'ose'
 ### model CPE sprawdzamy
 ###
-if czy_dostepne_urzadzenie("10.67.18.225"):
-    model_CPE=sprawdz_model_CPE(polaczCPE("10.67.18.225", "display version", un, pwd))
+adres="10.67.128.49"
+if czy_dostepne_urzadzenie(adres):
+    model_CPE=sprawdz_model_CPE(polaczCPE(adres, "display version", un, pwd))
 else:
     print("nie dostepne")
 ##### w sprawdz_model_cpe trzeba dodac regexa do wszystkich rodzajow CPE
 ##### w polacz cpe trzeba wpisac wszystkie komendy do sprwadzenia wersji czy to FG czy MT
 print(model_CPE)
 if "USG" in model_CPE:
-    test=wykonaj_diagnostyke_Huawei("10.67.18.225", un, pwd)
+    test=wykonaj_diagnostyke_Huawei(adres, un, pwd)
 
     print(f"  test1  i test 2 ")
     # przykład odczytu słownika
